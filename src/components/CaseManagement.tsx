@@ -18,11 +18,25 @@ interface Case {
   updated_at: string;
 }
 
-export default function CaseManagement() {
+interface CaseManagementProps {
+  openNewForm?: boolean;
+  onFormOpened?: () => void;
+}
+
+export default function CaseManagement({ openNewForm, onFormOpened }: CaseManagementProps) {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [showForm, setShowForm] = useState(false);
+
+  // Auto-open form when triggered from dashboard
+  useEffect(() => {
+    if (openNewForm) {
+      setShowForm(true);
+      onFormOpened?.();
+    }
+  }, [openNewForm, onFormOpened]);
 
   // Demo cases
   useEffect(() => {
@@ -128,7 +142,10 @@ export default function CaseManagement() {
           <h2 className="text-xl md:text-2xl font-bold text-gray-900 bengali">মামলা</h2>
           <p className="text-gray-600 bengali mt-1 text-sm md:text-base">সকল মামলার তথ্য দেখুন ও নতুন মামলা যোগ করুন</p>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center bengali text-sm md:text-base font-medium shadow-lg w-full sm:w-auto">
+        <button 
+          onClick={() => setShowForm(true)}
+          className="bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center bengali text-sm md:text-base font-medium shadow-lg w-full sm:w-auto"
+        >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
@@ -249,7 +266,10 @@ export default function CaseManagement() {
               </p>
               {!searchTerm && (
                 <div className="mt-6">
-                  <button className="inline-flex items-center px-4 py-3 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 bengali">
+                  <button 
+                    onClick={() => setShowForm(true)}
+                    className="inline-flex items-center px-4 py-3 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 bengali"
+                  >
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
@@ -347,6 +367,44 @@ export default function CaseManagement() {
             </div>
           )}
         </>
+      )}
+
+      {/* Case Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-xl bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900 bengali">নতুন মামলা যোগ করুন</h3>
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="text-center py-8">
+                <svg className="mx-auto h-12 w-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900 bengali">মামলা ফর্ম</h3>
+                <p className="mt-1 text-sm text-gray-500 bengali">
+                  এই ফিচারটি শীঘ্রই যোগ করা হবে
+                </p>
+                <div className="mt-6">
+                  <button
+                    onClick={() => setShowForm(false)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 bengali"
+                  >
+                    বন্ধ করুন
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

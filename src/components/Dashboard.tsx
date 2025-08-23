@@ -14,17 +14,53 @@ interface DashboardProps {
 export default function Dashboard({ onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showClientForm, setShowClientForm] = useState(false);
+  const [showCaseForm, setShowCaseForm] = useState(false);
+
+  const handleNewClient = () => {
+    setActiveTab('clients');
+    setShowClientForm(true);
+  };
+
+  const handleNewCase = () => {
+    setActiveTab('cases');
+    setShowCaseForm(true);
+  };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardHome />;
+        return (
+          <DashboardHome 
+            onNewClient={handleNewClient}
+            onNewCase={handleNewCase}
+            onNavigateToClients={() => setActiveTab('clients')}
+            onNavigateToCases={() => setActiveTab('cases')}
+          />
+        );
       case 'clients':
-        return <ClientManagement />;
+        return (
+          <ClientManagement 
+            openNewForm={showClientForm}
+            onFormOpened={() => setShowClientForm(false)}
+          />
+        );
       case 'cases':
-        return <CaseManagement />;
+        return (
+          <CaseManagement 
+            openNewForm={showCaseForm}
+            onFormOpened={() => setShowCaseForm(false)}
+          />
+        );
       default:
-        return <DashboardHome />;
+        return (
+          <DashboardHome 
+            onNewClient={handleNewClient}
+            onNewCase={handleNewCase}
+            onNavigateToClients={() => setActiveTab('clients')}
+            onNavigateToCases={() => setActiveTab('cases')}
+          />
+        );
     }
   };
 

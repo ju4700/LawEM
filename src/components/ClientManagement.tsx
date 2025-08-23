@@ -17,13 +17,26 @@ interface Client {
   created_at: string;
 }
 
-export default function ClientManagement() {
+interface ClientManagementProps {
+  openNewForm?: boolean;
+  onFormOpened?: () => void;
+}
+
+export default function ClientManagement({ openNewForm, onFormOpened }: ClientManagementProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Auto-open form when triggered from dashboard
+  useEffect(() => {
+    if (openNewForm) {
+      setShowForm(true);
+      onFormOpened?.();
+    }
+  }, [openNewForm, onFormOpened]);
 
   // Fetch clients on component mount
   useEffect(() => {
