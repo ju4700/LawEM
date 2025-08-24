@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getDb } from '@/lib/db';
+import { ObjectId } from 'mongodb';
 
 interface ClientData {
   name_bn: string;
@@ -12,49 +14,32 @@ interface ClientData {
   notes?: string;
 }
 
-// In-memory storage for demo purposes
-// eslint-disable-next-line prefer-const
-let clients: (ClientData & { id: string; created_at: string })[] = [
-  {
-    id: '1',
-    name_bn: 'মোহাম্মদ রহিম উদ্দিন',
-    name_en: 'Mohammad Rahim Uddin',
-    nid: '1234567890123',
-    phone: '+8801712345678',
-    email: 'rahim@example.com',
-    district: 'ঢাকা',
-    upazila: 'ধানমন্ডি',
-    address_details: '১২৩ নং বাড়ি, রোড নং ৫, ধানমন্ডি',
-    notes: 'ভালো ক্লায়েন্ট',
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    name_bn: 'ফাতেমা খাতুন',
-    name_en: 'Fatema Khatun',
-    nid: '9876543210987',
-    phone: '+8801987654321',
-    email: 'fatema@example.com',
-    district: 'চট্টগ্রাম',
-    upazila: 'কোতোয়ালী',
-    address_details: '৪৫৬ নং বাড়ি, আগ্রাবাদ',
-    notes: 'জরুরি কেস',
-    created_at: new Date().toISOString(),
-  },
-];
-
 export async function GET() {
   try {
+    const db = await getDb();
+    const clients = await db.collection('clients')
+      .find({})
+      .sort({ created_at: -1 })
+      .toArray();
+
+    // Convert ObjectId to string for frontend
+    const clientsWithStringId = clients.map(client => ({
+      ...client,
+      id: client._id.toString(),
+      _id: undefined,
+      created_at: client.created_at.toISOString()
+    }));
+
     return NextResponse.json({
       success: true,
-      clients: clients.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+      clients: clientsWithStringId,
     });
   } catch (error) {
     console.error('Error fetching clients:', error);
-    return NextResponse.json(
-      { success: false, error: 'ক্লায়েন্ট তালিকা লোড করতে সমস্যা হয়েছে' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: 'ক্লায়েন্ট তথ্য লোড করতে ব্যর্থ',
+    }, { status: 500 });
   }
 }
 
@@ -71,8 +56,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const db = await getDb();
+
     // Check if NID already exists
-    const existingClient = clients.find(c => c.nid === clientData.nid);
+    const existingClient = await db.collection('clients').findOne({ nid: clientData.nid });
     if (existingClient) {
       return NextResponse.json(
         { success: false, error: 'এই জাতীয় পরিচয়পত্র নম্বর দিয়ে ইতিমধ্যে একটি ক্লায়েন্ট আছে' },
@@ -83,16 +70,20 @@ export async function POST(request: NextRequest) {
     // Create new client
     const newClient = {
       ...clientData,
-      id: Date.now().toString(),
-      created_at: new Date().toISOString(),
+      created_at: new Date(),
     };
 
-    clients.push(newClient);
+    const result = await db.collection('clients').insertOne(newClient);
 
     return NextResponse.json({
       success: true,
       message: 'ক্লায়েন্ট সফলভাবে যোগ করা হয়েছে',
-      client: newClient,
+      client: {
+        ...newClient,
+        id: result.insertedId.toString(),
+        _id: undefined,
+        created_at: newClient.created_at.toISOString()
+      },
     });
   } catch (error) {
     console.error('Error creating client:', error);

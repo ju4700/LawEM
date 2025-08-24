@@ -8,7 +8,6 @@ interface DashboardStats {
   totalCases: number;
   activeCases: number;
   upcomingHearings: number;
-  pendingDocuments: number;
 }
 
 interface DashboardHomeProps {
@@ -30,7 +29,6 @@ export default function DashboardHome({
     totalCases: 0,
     activeCases: 0,
     upcomingHearings: 0,
-    pendingDocuments: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -40,26 +38,26 @@ export default function DashboardHome({
 
   const fetchDashboardStats = async () => {
     try {
-      // Set mock data directly for demo (avoiding API call issues)
-      setStats({
-        totalClients: 45,
-        activeClients: 38,
-        totalCases: 62,
-        activeCases: 24,
-        upcomingHearings: 8,
-        pendingDocuments: 12,
+      // Get JWT token from localStorage
+      const token = localStorage.getItem('authToken');
+      
+      const response = await fetch('/api/dashboard/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      } else {
+        console.error('Failed to fetch stats:', response.status);
+        throw new Error('Failed to fetch dashboard stats');
+      }
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
-      // Set mock data for demo
-      setStats({
-        totalClients: 45,
-        activeClients: 38,
-        totalCases: 62,
-        activeCases: 24,
-        upcomingHearings: 8,
-        pendingDocuments: 12,
-      });
+      // If there's an error, we don't set fallback data - let the user know there's an issue
     } finally {
       setLoading(false);
     }

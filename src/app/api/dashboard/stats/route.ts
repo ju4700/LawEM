@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { getDb } from '@/lib/db';
 import jwt from 'jsonwebtoken';
 
 // Helper function to verify JWT token
@@ -28,82 +28,63 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Try to get real stats from database, fallback to demo data
-    try {
-      const { db } = await connectToDatabase();
+    const db = await getDb();
 
-      // Get client statistics
-      const totalClientsPromise = db.collection('clients').countDocuments();
-      const activeClientsPromise = db.collection('clients').countDocuments({ status: 'active' });
+    // Get client statistics
+    const totalClientsPromise = db.collection('clients').countDocuments();
+    const activeClientsPromise = db.collection('clients').countDocuments();
 
-      // Get case statistics
-      const totalCasesPromise = db.collection('cases').countDocuments();
-      const activeCasesPromise = db.collection('cases').countDocuments({ 
-        status: { $in: ['pending', 'ongoing'] } 
-      });
+    // Get case statistics  
+    const totalCasesPromise = db.collection('cases').countDocuments();
+    const activeCasesPromise = db.collection('cases').countDocuments({ 
+      status: { $in: ['pending', 'active'] } 
+    });
 
-      // Get upcoming hearings (next 7 days)
-      const nextWeek = new Date();
-      nextWeek.setDate(nextWeek.getDate() + 7);
-      const upcomingHearingsPromise = db.collection('schedules').countDocuments({
-        type: 'hearing',
-        date: { $gte: new Date(), $lte: nextWeek },
-        status: 'scheduled'
-      });
+    // Get upcoming hearings (next 30 days)
+    const today = new Date();
+    const nextMonth = new Date();
+    nextMonth.setDate(nextMonth.getDate() + 30);
+    
+    const upcomingHearingsPromise = db.collection('cases').countDocuments({
+      next_hearing: { 
+        $gte: today, 
+        $lte: nextMonth 
+      },
+      status: { $in: ['pending', 'active'] }
+    });
 
-      // Get pending documents
-      const pendingDocumentsPromise = db.collection('documents').countDocuments({
-        // Add any criteria for pending documents
-      });
+    // Execute all queries in parallel
+    const [
+      totalClients,
+      activeClients,
+      totalCases,
+      activeCases,
+      upcomingHearings
+    ] = await Promise.all([
+      totalClientsPromise,
+      activeClientsPromise,
+      totalCasesPromise,
+      activeCasesPromise,
+      upcomingHearingsPromise
+    ]);
 
-      // Execute all queries in parallel
-      const [
-        totalClients,
-        activeClients,
-        totalCases,
-        activeCases,
-        upcomingHearings,
-        pendingDocuments
-      ] = await Promise.all([
-        totalClientsPromise,
-        activeClientsPromise,
-        totalCasesPromise,
-        activeCasesPromise,
-        upcomingHearingsPromise,
-        pendingDocumentsPromise
-      ]);
+    const stats = {
+      totalClients,
+      activeClients,
+      totalCases,
+      activeCases,
+      upcomingHearings
+    };
 
-      const stats = {
-        totalClients: totalClients || 45,
-        activeClients: activeClients || 38,
-        totalCases: totalCases || 62,
-        activeCases: activeCases || 24,
-        upcomingHearings: upcomingHearings || 8,
-        pendingDocuments: pendingDocuments || 12,
-      };
-
-      return NextResponse.json(stats);
-
-    } catch (dbError) {
-      console.error('Database connection error, using demo stats:', dbError);
-      
-      // Return demo data when database is not available
-      const demoStats = {
-        totalClients: 45,
-        activeClients: 38,
-        totalCases: 62,
-        activeCases: 24,
-        upcomingHearings: 8,
-        pendingDocuments: 12,
-      };
-
-      return NextResponse.json(demoStats);
-    }
+    return NextResponse.json(stats);
 
   } catch (error) {
     console.error('Dashboard stats error:', error);
     return NextResponse.json(
-      { message: 'সার্ভার ত্রুটি' },
+      { 
+        message: 'ডেটাবেস সংযোগে সমস্যা',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

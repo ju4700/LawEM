@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import CaseForm from './CaseForm';
 
 interface Case {
   id: string;
@@ -26,6 +27,7 @@ interface CaseManagementProps {
 export default function CaseManagement({ openNewForm, onFormOpened }: CaseManagementProps) {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
+  const [formLoading, setFormLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
@@ -38,46 +40,78 @@ export default function CaseManagement({ openNewForm, onFormOpened }: CaseManage
     }
   }, [openNewForm, onFormOpened]);
 
-  // Demo cases
+  // Fetch cases from API
   useEffect(() => {
-    const demoCases: Case[] = [
-      {
-        id: '1',
-        case_number: 'CC-2024-001',
-        title_bn: 'ভূমি বিরোধ মামলা',
-        title_en: 'Land Dispute Case',
-        client_name: 'আব্দুল করিম',
-        case_type: 'দেওয়ানি',
-        status: 'active',
-        priority: 'high',
-        court_name: 'ঢাকা জজ আদালত',
-        next_hearing: '2024-01-25',
-        description: 'ভূমির মালিকানা নিয়ে বিরোধ',
-        created_at: '2024-01-01T09:00:00Z',
-        updated_at: '2024-01-15T10:30:00Z'
-      },
-      {
-        id: '2',
-        case_number: 'CR-2024-002',
-        title_bn: 'ফৌজদারি মামলা',
-        title_en: 'Criminal Case',
-        client_name: 'ফাতেমা খাতুন',
-        case_type: 'ফৌজদারি',
-        status: 'pending',
-        priority: 'medium',
-        court_name: 'চট্টগ্রাম জজ আদালত',
-        next_hearing: '2024-02-10',
-        description: 'চুরির অভিযোগ',
-        created_at: '2024-01-10T11:00:00Z',
-        updated_at: '2024-01-20T14:00:00Z'
-      }
-    ];
-    
-    setTimeout(() => {
-      setCases(demoCases);
-      setLoading(false);
-    }, 1000);
+    fetchCases();
   }, []);
+
+  const fetchCases = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/cases');
+      const data = await response.json();
+      
+      if (data.success) {
+        setCases(data.cases);
+      } else {
+        console.error('Failed to fetch cases:', data.error);
+        // Keep empty array if API fails
+        setCases([]);
+      }
+    } catch (error) {
+      console.error('Error fetching cases:', error);
+      // Keep empty array if API fails
+      setCases([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFormSubmit = async (formData: any) => {
+    try {
+      setFormLoading(true);
+      
+      // Map form data to API format
+      const caseData = {
+        case_number: formData.case_number || `CASE-${Date.now()}`,
+        title_bn: formData.title,
+        title_en: formData.title_en,
+        client_id: formData.client_id,
+        client_name: formData.client_name,
+        case_type: formData.case_type,
+        status: formData.status,
+        priority: 'medium', // Default priority
+        court_name: formData.court_name,
+        next_hearing: formData.next_hearing_date,
+        description: formData.description,
+      };
+
+      const response = await fetch('/api/cases', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(caseData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh the cases list
+        await fetchCases();
+        setShowForm(false);
+        // You might want to show a success message here
+      } else {
+        console.error('Failed to create case:', data.error);
+        // You might want to show an error message here
+      }
+    } catch (error) {
+      console.error('Error creating case:', error);
+      // You might want to show an error message here
+    } finally {
+      setFormLoading(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -370,42 +404,12 @@ export default function CaseManagement({ openNewForm, onFormOpened }: CaseManage
       )}
 
       {/* Case Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-xl bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900 bengali">নতুন মামলা যোগ করুন</h3>
-                <button
-                  onClick={() => setShowForm(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="text-center py-8">
-                <svg className="mx-auto h-12 w-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900 bengali">মামলা ফর্ম</h3>
-                <p className="mt-1 text-sm text-gray-500 bengali">
-                  এই ফিচারটি শীঘ্রই যোগ করা হবে
-                </p>
-                <div className="mt-6">
-                  <button
-                    onClick={() => setShowForm(false)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 bengali"
-                  >
-                    বন্ধ করুন
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <CaseForm
+        isOpen={showForm}
+        onClose={() => setShowForm(false)}
+        onSubmit={handleFormSubmit}
+        loading={formLoading}
+      />
     </div>
   );
 }
