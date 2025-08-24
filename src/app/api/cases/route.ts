@@ -3,17 +3,16 @@ import { getDb } from '@/lib/db';
 import { ObjectId } from 'mongodb';
 
 interface CaseData {
-  case_number: string;
-  title_bn: string;
-  title_en?: string;
+  title: string;
   client_id: string;
-  client_name: string;
   case_type: string;
-  status: 'pending' | 'active' | 'closed' | 'won' | 'lost';
-  priority: 'low' | 'medium' | 'high';
+  status: 'active' | 'pending' | 'closed';
   court_name?: string;
-  next_hearing?: string;
+  case_number?: string;
+  filing_date?: Date;
+  next_hearing?: Date;
   description?: string;
+  documents?: string[];
 }
 
 export async function GET() {
@@ -24,13 +23,15 @@ export async function GET() {
       .sort({ created_at: -1 })
       .toArray();
 
-    // Convert ObjectId to string for frontend
+    // Convert ObjectId to string for frontend and format dates
     const casesWithStringId = cases.map(caseItem => ({
       ...caseItem,
       id: caseItem._id.toString(),
       _id: undefined,
+      client_id: caseItem.client_id.toString(),
       created_at: caseItem.created_at.toISOString(),
-      updated_at: caseItem.updated_at.toISOString()
+      filing_date: caseItem.filing_date ? caseItem.filing_date.toISOString() : undefined,
+      next_hearing: caseItem.next_hearing ? caseItem.next_hearing.toISOString() : undefined,
     }));
 
     return NextResponse.json({
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     const caseData: CaseData = body;
 
     // Validate required fields
-    if (!caseData.case_number || !caseData.title_bn || !caseData.client_id || !caseData.client_name || !caseData.case_type || !caseData.status || !caseData.priority) {
+    if (!caseData.title || !caseData.client_id || !caseData.case_type || !caseData.status) {
       return NextResponse.json(
         { success: false, error: 'সব প্রয়োজনীয় তথ্য দিন' },
         { status: 400 }
@@ -61,11 +62,11 @@ export async function POST(request: NextRequest) {
 
     const db = await getDb();
 
-    // Check if case number already exists
-    const existingCase = await db.collection('cases').findOne({ case_number: caseData.case_number });
-    if (existingCase) {
+    // Validate client exists
+    const client = await db.collection('clients').findOne({ _id: new ObjectId(caseData.client_id) });
+    if (!client) {
       return NextResponse.json(
-        { success: false, error: 'এই মামলা নম্বর দিয়ে ইতিমধ্যে একটি মামলা আছে' },
+        { success: false, error: 'ক্লায়েন্ট খুঁজে পাওয়া যায়নি' },
         { status: 400 }
       );
     }
@@ -73,8 +74,10 @@ export async function POST(request: NextRequest) {
     // Create new case
     const newCase = {
       ...caseData,
+      client_id: new ObjectId(caseData.client_id),
+      filing_date: caseData.filing_date ? new Date(caseData.filing_date) : undefined,
+      next_hearing: caseData.next_hearing ? new Date(caseData.next_hearing) : undefined,
       created_at: new Date(),
-      updated_at: new Date(),
     };
 
     const result = await db.collection('cases').insertOne(newCase);
@@ -86,8 +89,10 @@ export async function POST(request: NextRequest) {
         ...newCase,
         id: result.insertedId.toString(),
         _id: undefined,
+        client_id: newCase.client_id.toString(),
         created_at: newCase.created_at.toISOString(),
-        updated_at: newCase.updated_at.toISOString()
+        filing_date: newCase.filing_date ? newCase.filing_date.toISOString() : undefined,
+        next_hearing: newCase.next_hearing ? newCase.next_hearing.toISOString() : undefined,
       },
     });
   } catch (error) {
